@@ -13,7 +13,7 @@ setup(
     author='gpratt, adomissy, byee4',
     author_email='bay001@ucsd.edu',
     description='Creates and attempts to upload trackhub files to yeolab aws',
-    packages=['maketrackhubs'],
+    packages=['maketrackhubs', 'trackhub'],
     package_dir={
         'maketrackhubs': 'maketrackhubs',
         'trackhub': 'maketrackhubs/trackhub',
