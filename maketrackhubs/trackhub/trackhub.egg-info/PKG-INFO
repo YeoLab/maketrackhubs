@@ -1,0 +1,15 @@
+Metadata-Version: 1.1
+Name: trackhub
+Version: 0.1.1
+Summary: 
+Create and manage UCSC track hubs from Python
+
+Home-page: http://github.com/daler/trackhub
+Author: Ryan Dale
+Author-email: dalerr@niddk.nih.gov
+License: UNKNOWN
+Description: 
+        Create and manage UCSC track hubs from Python
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
