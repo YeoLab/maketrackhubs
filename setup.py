@@ -16,6 +16,7 @@ setup(
     packages=['maketrackhubs'],
     package_dir={
         'maketrackhubs': 'maketrackhubs',
+        'trackhub': 'maketrackhubs/trackhub',
     },
     entry_points = {
         'console_scripts': [
