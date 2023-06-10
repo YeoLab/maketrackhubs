@@ -1,0 +1,23 @@
+awscli @ file:///home/conda/feedstock_root/build_artifacts/awscli_1630743683519/work
+boto3 @ file:///home/conda/feedstock_root/build_artifacts/boto3_1630724224185/work
+botocore @ file:///home/conda/feedstock_root/build_artifacts/botocore_1630714825452/work
+brotlipy==0.7.0
+certifi==2021.5.30
+cffi @ file:///home/conda/feedstock_root/build_artifacts/cffi_1625835307225/work
+colorama==0.4.3
+cryptography @ file:///home/conda/feedstock_root/build_artifacts/cryptography_1616851485986/work
+docutils @ file:///home/conda/feedstock_root/build_artifacts/docutils_1620114303417/work
+idna @ file:///home/conda/feedstock_root/build_artifacts/idna_1609836280497/work
+jmespath @ file:///home/conda/feedstock_root/build_artifacts/jmespath_1589369830981/work
+maketrackhubs==1.0.0
+pyasn1==0.4.8
+pycparser @ file:///home/conda/feedstock_root/build_artifacts/pycparser_1593275161868/work
+pyOpenSSL @ file:///home/conda/feedstock_root/build_artifacts/pyopenssl_1608055815057/work
+PySocks @ file:///home/conda/feedstock_root/build_artifacts/pysocks_1610291451001/work
+python-dateutil @ file:///home/conda/feedstock_root/build_artifacts/python-dateutil_1626286286081/work
+PyYAML==5.4.1
+rsa @ file:///home/conda/feedstock_root/build_artifacts/rsa_1614171254180/work
+s3transfer @ file:///home/conda/feedstock_root/build_artifacts/s3transfer_1626384238958/work
+six @ file:///home/conda/feedstock_root/build_artifacts/six_1620240208055/work
+trackhub==0.2.4
+urllib3 @ file:///home/conda/feedstock_root/build_artifacts/urllib3_1624634538755/work

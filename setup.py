@@ -7,16 +7,15 @@ except ImportError:
 
 setup(
     name='maketrackhubs',
-    version='0.0.2',
+    version='1.0.0',
     url='github.com/YeoLab/maketrackhubs',
     license='',
     author='gpratt, adomissy, byee4',
     author_email='bay001@ucsd.edu',
     description='Creates and attempts to upload trackhub files to yeolab aws',
-    packages=['maketrackhubs', 'trackhub'],
+    packages=['maketrackhubs'],
     package_dir={
         'maketrackhubs': 'maketrackhubs',
-        'trackhub': 'maketrackhubs/trackhub',
     },
     entry_points = {
         'console_scripts': [

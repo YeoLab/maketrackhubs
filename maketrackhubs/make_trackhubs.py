@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 '''
-Created on Mar 7, 2013
+Created on June 10, 2023
 
 @author: byee4
 
@@ -9,16 +9,16 @@ Given a list of * files makes trackhubs for those files
 Assumes that you have an aws profile that is configured with access to yeolab's trackhub bucket.
 
 '''
-
+import logging
 import argparse
 import re
 import os
 from itertools import groupby
 import subprocess
 import time
-from trackhub import Hub, GenomesFile, Genome, TrackDb, Track, AggregateTrack, SuperTrack
-
-from trackhub.upload import upload_hub, upload_track
+from trackhub import Hub, GenomesFile, Genome, TrackDb, Track, AggregateTrack, SuperTrack, helpers
+from pathlib import Path
+from trackhub.upload import upload_hub
 
 import boto3
 import botocore
@@ -31,8 +31,6 @@ def remove_plus_and_pct(string):
         string:
     Returns: string after removing all + and all % characters
     """
-    # clean_string = re.sub(r'[%+]+', '', string)   # old code
-    # clean_string = re.sub(r'[%+]+', '', string)   # equivalent to above, but still a regexp, let s use replace instead
     clean_string = string.replace('+','').replace('%','')
     return clean_string
 
@@ -77,7 +75,9 @@ def copy_dir_to_aws(src, dest):
     """
     if not dest.startswith('s3://'):
         dest = 's3://' + dest
-
+    if not dest.endswith('/'):
+        dest = dest + '/'
+        
     if not src.endswith('/'):
         src = src + '/'
 
@@ -140,13 +140,29 @@ def main():
     ###########################################################################
     args = parser.parse_args()
 
-    # TODO: unhack this, but let's keep all trackhubs here for now.
+    # Let's keep all trackhubs here for now.
     urldomain = "s3-us-west-2.amazonaws.com"
     urldir = "yeolab-trackhubs"
     uploaddir = "yeolab-trackhubs"
     hub_name = args.hub
     hub_email = args.hub_email
 
+    # setup logger
+    logger = logging.getLogger('maketrackhubs')
+    logger.setLevel(logging.INFO)
+    ih = logging.FileHandler('maketrackhubs.log')
+    eh = logging.FileHandler('maketrackhubs.err')
+    ih.setLevel(logging.INFO)
+    eh.setLevel(logging.ERROR)
+    logger.addHandler(ih)
+    logger.addHandler(eh)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ih.setFormatter(formatter)
+    eh.setFormatter(formatter)
+    logger.info("starting program")
+    
+    
     # default label settings
     ########################
     hub_short_label = hub_name
@@ -202,24 +218,27 @@ def main():
 
     # process bigwig files , re-grouped by third 2 dot-sepatarated name-parts, as multitracks
     ##########################################################################################
-    key_func = lambda x: x.split(args.sep)[:args.num_sep]
+    key_func = lambda x: os.path.basename(x).split(args.sep)[:args.num_sep]
     for group_key, group_bigwig_files in groupby(sorted(bigwig_files, key=key_func), key_func):
 
         group_bigwig_files_list = list(group_bigwig_files)
-        print("args sep: {}".format(args.sep))
-        print("args num sep: {}".format(args.num_sep))
-        print("split filename: {}".format(bigwig_files[0].split(args.sep)[:args.num_sep]))
-        print "-----------------------------------------"
-        print "processing bigwig files group with key :" , group_key
-        print "comprised of following files:", group_bigwig_files_list
-        print "-----------------------------------------"
+        logger.info("args sep: {}".format(args.sep))
+        logger.info("args num sep: {}".format(args.num_sep))
+        logger.info("split filename: {}".format(bigwig_files[0].split(args.sep)[:args.num_sep]))
+        logger.info("-----------------------------------------")
+        logger.info("processing bigwig files group with key : {}".format(group_key))
+        logger.info("comprised of following files: {}".format(group_bigwig_files_list))
+        logger.info("-----------------------------------------")
 
-        long_name = remove_plus_and_pct(os.path.basename(args.sep.join(group_key[:args.num_sep])))
+        long_name = os.path.basename(args.sep.join(group_key[:args.num_sep]))
+        logger.info("long_name: {}".format(long_name))
+        sanitized_long_name = helpers.sanitize(long_name)
+        logger.info("sanitized_long_name: {}".format(sanitized_long_name))
         aggregate = AggregateTrack(
-            name=long_name,
+            name=sanitized_long_name,
             tracktype='bigWig',
-            short_label=long_name,
-            long_label=long_name,
+            short_label=sanitized_long_name,
+            long_label=sanitized_long_name,
             aggregate='transparentOverlay',
             showSubtrackColorOnUi='on',
             autoScale='on',
@@ -229,62 +248,69 @@ def main():
             )
         
         for bigwigfile in group_bigwig_files_list:
-            print "--------------------------"
-            print "bigwigfile",  bigwigfile
-            print "--------------------------"
-            base_track = remove_plus_and_pct(os.path.basename(bigwigfile))
-            split_track = base_track.split(args.sep)
-            long_name = args.sep.join(split_track[:args.num_sep] + split_track[-3:])
-            color = "0,100,0" if "pos" in bigwigfile else "100,0,0"
+            logger.info("--------------------------")
+            logger.info("bigwigfile: {}".format(bigwigfile))
+            logger.info("--------------------------")
+            base_track = os.path.basename(bigwigfile)
+            logger.info("Base track: {}".format(base_track))
+            sanitized_base_track = helpers.sanitize(base_track)
+            logger.info("Sanitized: {}".format(sanitized_base_track))
+            
+            if "pos" in bigwigfile or "plus" in bigwigfile:
+                color = "0,100,0" 
+            else:
+                color = "100,0,0"
             track = Track(
-                name= long_name,
-                url = os.path.join(URLBASE, GENOME, base_track),
-                tracktype = "bigWig",
-                short_label=long_name,
-                long_label=long_name,
-                color = color,
-                local_fn = bigwigfile,
-                remote_fn = os.path.join(uploaddir, GENOME, base_track)
+                name=sanitized_base_track,
+                url=os.path.join(URLBASE, GENOME, base_track),
+                tracktype="bigWig",
+                short_label=sanitized_base_track,
+                long_label=sanitized_base_track,
+                color=color,
+                local_fn=bigwigfile,
+                remote_fn=os.path.join(GENOME, base_track)
                 )
-            #print "aggregate.add_subtrack", track.name
+            logger.info("aggregate.add_subtrack: {}".format(track.name))
             aggregate.add_subtrack(track)
-        #print "supertrack.add_track", aggregate
-        supertrack.add_track(aggregate)
-
-
-        #print "trackdb.add_tracks", aggregate
-        #trackdb.add_tracks(aggregate)
+        supertrack.add_tracks(aggregate)
 
     # process bigbed files as single track
     ######################################
 
     for bigbed_file in bigbed_files:
 
-    #     print "--------------------------"
-    #     print "bigbedfile",  bigbedfile
-    #     print "--------------------------"
+        logger.info("--------------------------")
+        logger.info("bigbedfile: {}".format(bigbed_file))
+        logger.info("--------------------------")
 
-        color = "0,100,0" if "pos" in bigbed_file else "100,0,0"
-        base_track = remove_plus_and_pct(os.path.basename(bigbed_file))
-        long_name = args.sep.join(base_track.split(args.sep)[:args.num_sep]) + ".bb"
+        if "pos" in bigbed_file or "plus" in bigbed_file:
+            color = "0,100,0" 
+        else:
+            color = "100,0,0"
+        base_track = os.path.basename(bigbed_file)
+        long_name = args.sep.join(base_track.split(args.sep)[:args.num_sep])
+        sanitized_long_name = helpers.sanitize(long_name)
+        logger.info(f"base_track: {base_track}")
+        logger.info(f"long_name: {long_name}")
+        logger.info(f"sanitized_long_name: {sanitized_long_name}")
+        
         track = Track(
-            name=long_name,
+            name=sanitized_long_name,
             url=os.path.join(URLBASE, GENOME, base_track),
             tracktype="bigBed",
-            short_label=long_name,
-            long_label=long_name,
+            short_label=sanitized_long_name,
+            long_label=sanitized_long_name,
             color=color,
             local_fn=bigbed_file,
-            remote_fn=os.path.join(uploaddir, GENOME, base_track),
-            visibility="full"
+            remote_fn=os.path.join(GENOME, base_track),
+            visibility="dense"
         )
-        #trackdb.add_tracks(track)
-        supertrack.add_track(track)
-
+        supertrack.add_tracks(track)
 
     trackdb.add_tracks(supertrack)
     result = hub.render()
-    hub.remote_fn = os.path.join(uploaddir, "hub.txt")
+    
+    hub.remote_fn = os.path.join(uploaddir, "{}.hub.txt".format(hub_name))
 
     # process bigbed files  (bam?)
     ######################
@@ -292,25 +318,27 @@ def main():
     # if bigwigfile.endswith(".bw") or bigwigfile.endswith('.bigWig'): tracktype = "bigWig"
     # if bigwigfile.endswith(".bb") or bigwigfile.endswith('.bigBed'): tracktype = "bigBed"
     # if bigwigfile.endswith(".bam"):                                  tracktype = "bam"
-
+    
     # 'upolading' (locally)
     ########################
-    for track in trackdb.tracks:
+    # for track in trackdb.tracks:
         #print("upload_track(track=" + track.__repr__() + ", host=" + args.serverscp + ", user=" + args.user + "run_local=True")
         #upload_track(track=track, host=args.serverscp, user=args.user)
         # upload_track(track=track, host=args.serverscp, user=args.user, run_s3=args.no_s3)
-        upload_track(track=track, host=HOST, user=USER, run_local=True)
+    #     upload_track(track=track, host=HOST, user=USER, run_local=True)
 
     #print("upload_hub(hub=" + hub.__repr__() + ", host=" + args.serverscp + ", user=" + args.user + "run_local=True")
     #upload_hub(hub=hub, host=args.serverscp, user=args.user)
     # upload_hub(hub=hub, host=args.serverscp, user=args.user, run_s3=args.no_s3)
-    pass
-    upload_hub(hub=hub, host=HOST, user=USER, run_local=True)
+    
+    logger.info("Uploaddir = {}".format(uploaddir))
+    Path(uploaddir).mkdir( parents=True, exist_ok=True )
+    upload_hub(hub=hub, host=HOST, remote_dir=uploaddir)
     #
-    print("UPLOADDIR: {}".format(uploaddir))
-    print("BUCKET: {}".format(uploaddir))
+    logger.info("UPLOADDIR: {}".format(uploaddir))
+    logger.info("BUCKET: {}".format(uploaddir))
     copy_dir_to_aws(
         src=uploaddir,
         dest=uploaddir,
     )
-    print("FINAL URL: {}/hub.txt".format(URLBASE))
+    print("FINAL URL: {}/{}.hub.txt".format(URLBASE, hub_name))
